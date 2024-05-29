@@ -4,6 +4,7 @@ import pandas as pd
 import json
 import plotly.express as px
 from datetime import datetime
+import database.mongodb
 
 # Função para obter todos os commits
 def get_all_commits(repo_name, token):
