@@ -12,16 +12,18 @@ uri = f"mongodb+srv://{username}:{password}@github-extracts.ide0ptg.mongodb.net/
 # Create a new client and connect to the server
 client = MongoClient(uri, server_api=ServerApi('1'))
 
-def get_commits(collection_name):
+def get_documents_from(collection_name):
     db = client['Turma14']
     collection = db[collection_name]
     documents = collection.find()
+
     return documents
 
-def insert_document(collection_name, commit):
+def insert_document_into(collection_name, commit):
     db = client['Turma14']
     collection = db[collection_name]
     document = collection.insert_one(commit)
+    
     return document.inserted_id
 
 def ping_database():

@@ -67,6 +67,16 @@ if st.button("Extrair Dados"):
                 df_commits = pd.DataFrame(commits)
                 df_commits['date'] = pd.to_datetime(df_commits['date'])
                 st.dataframe(df_commits)
+
+                try:
+                    database.mongodb.ping_database()
+
+                    commits = {repo_name: commits}
+
+                    database.mongodb.insert_document_into('commits', commits)
+
+                except Exception as e:
+                    st.error(f"Erro ao conectar ao banco de dados: {e}")
                 
                 # Download do JSON de commits
                 json_data_commits = json.dumps(commits, indent=4)
@@ -105,6 +115,16 @@ if st.button("Extrair Dados"):
                 df_pulls = pd.DataFrame(pull_requests)
                 df_pulls['created_at'] = pd.to_datetime(df_pulls['created_at'])
                 st.dataframe(df_pulls)
+
+                try:
+                    database.mongodb.ping_database()
+
+                    pull_requests = {repo_name: pull_requests}
+                    
+                    database.mongodb.insert_document_into('pull-requests', pull_requests)
+                        
+                except Exception as e:
+                    st.error(f"Erro ao conectar ao banco de dados: {e}")
                 
                 # Download do JSON de pull requests
                 json_data_pulls = json.dumps(pull_requests, indent=4)
