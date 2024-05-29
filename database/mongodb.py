@@ -12,10 +12,10 @@ uri = f"mongodb+srv://{username}:{password}@github-extracts.ide0ptg.mongodb.net/
 # Create a new client and connect to the server
 client = MongoClient(uri, server_api=ServerApi('1'))
 
-def get_documents_from(collection_name):
+def get_documents_from(collection_name, repo_name):
     db = client['Turma14']
     collection = db[collection_name]
-    documents = collection.find()
+    documents = collection.find_one({ 'repo_name': repo_name })
 
     return documents
 

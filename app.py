@@ -58,25 +58,48 @@ token = st.text_input("Token do GitHub:", type="password")
 if st.button("Extrair Dados"):
     if repo_name and token:
         try:
+
+            database.mongodb.ping_database()
+
+            commit_document = database.mongodb.get_documents_from('commits', repo_name)
+            pull_request_document = database.mongodb.get_documents_from('pull-requests', repo_name)
+
+            if commit_document:
+                commit_document = commit_document['commits']
+
+            if pull_request_document:
+                pull_request_document = pull_request_document['pull-requests']
+
             with st.spinner('Buscando commits e pull requests...'):
-                commits = get_all_commits(repo_name, token)
-                pull_requests = get_all_pull_requests(repo_name, token)
+                if not commit_document:
+
+                    st.write("Buscando commits...")
+
+                    commits =  get_all_commits(repo_name, token)
+                    database.mongodb.insert_document_into('commits', {"repo_name": repo_name, "commits": commits})
+
+                    st.write("Inserted commits into database.")
+
+                else:
+                    commits = commit_document
+                
+                if not pull_request_document:
+                    st.write("Buscando pull requests...")
+
+                    pull_requests = get_all_pull_requests(repo_name, token)
+                    
+                    database.mongodb.insert_document_into('pull-requests', {"repo_name": repo_name, "pull-requests": pull_requests})
+
+                    st.write("Inserted pull-request into database.")
+
+                else:
+                    pull_requests = pull_request_document
             
             if commits:
                 st.success(f"Encontrado {len(commits)} commits.")
                 df_commits = pd.DataFrame(commits)
                 df_commits['date'] = pd.to_datetime(df_commits['date'])
                 st.dataframe(df_commits)
-
-                try:
-                    database.mongodb.ping_database()
-
-                    commits = {repo_name: commits}
-
-                    database.mongodb.insert_document_into('commits', commits)
-
-                except Exception as e:
-                    st.error(f"Erro ao conectar ao banco de dados: {e}")
                 
                 # Download do JSON de commits
                 json_data_commits = json.dumps(commits, indent=4)
@@ -115,16 +138,6 @@ if st.button("Extrair Dados"):
                 df_pulls = pd.DataFrame(pull_requests)
                 df_pulls['created_at'] = pd.to_datetime(df_pulls['created_at'])
                 st.dataframe(df_pulls)
-
-                try:
-                    database.mongodb.ping_database()
-
-                    pull_requests = {repo_name: pull_requests}
-                    
-                    database.mongodb.insert_document_into('pull-requests', pull_requests)
-                        
-                except Exception as e:
-                    st.error(f"Erro ao conectar ao banco de dados: {e}")
                 
                 # Download do JSON de pull requests
                 json_data_pulls = json.dumps(pull_requests, indent=4)
