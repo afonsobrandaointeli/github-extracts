@@ -1,65 +1,71 @@
 import streamlit as st
-from github import Github
 import pandas as pd
 import json
 import plotly.express as px
-from datetime import datetime
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
+import os
+from datetime import datetime  # Adicionado para resolver o erro
 
-# Função para obter todos os commits
-def get_all_commits(repo_name, token):
-    g = Github(token)
-    repo = g.get_repo(repo_name)
-    commits = repo.get_commits()
+# Carregar variáveis de ambiente do arquivo .env
+load_dotenv()
 
-    commit_data = []
-    for commit in commits:
-        commit_info = {
-            "sha": commit.sha,
-            "message": commit.commit.message,
-            "author": commit.commit.author.name,
-            "date": commit.commit.author.date.isoformat(),
-            "url": commit.html_url
-        }
-        commit_data.append(commit_info)
-    
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Função para conectar ao banco de dados
+def connect_db():
+    conn = psycopg2.connect(DATABASE_URL)
+    return conn
+
+# Função para obter a lista de repositórios
+def get_repo_names():
+    conn = connect_db()
+    with conn.cursor() as cursor:
+        cursor.execute("SELECT DISTINCT repo_name FROM commits")
+        repo_names = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return repo_names
+
+# Função para obter todos os commits do banco de dados por repositório
+def get_all_commits(repo_name):
+    conn = connect_db()
+    with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+        cursor.execute("SELECT * FROM commits WHERE repo_name = %s", (repo_name,))
+        commit_data = cursor.fetchall()
+    conn.close()
     return commit_data
 
-# Função para obter todos os pull requests
-def get_all_pull_requests(repo_name, token):
-    g = Github(token)
-    repo = g.get_repo(repo_name)
-    pulls = repo.get_pulls(state='all', sort='created', direction='desc')
-
-    pull_data = []
-    for pull in pulls:
-        pull_info = {
-            "number": pull.number,
-            "title": pull.title,
-            "author": pull.user.login,
-            "created_at": pull.created_at.isoformat(),
-            "state": pull.state,
-            "comments": pull.comments,
-            "review_comments": pull.review_comments,
-            "commits": [c.sha for c in pull.get_commits()],
-            "url": pull.html_url
-        }
-        pull_data.append(pull_info)
-    
+# Função para obter todos os pull requests do banco de dados por repositório
+def get_all_pull_requests(repo_name):
+    conn = connect_db()
+    with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+        cursor.execute("SELECT * FROM pull_requests WHERE repo_name = %s", (repo_name,))
+        pull_data = cursor.fetchall()
+    conn.close()
     return pull_data
+
+# Função para converter datetime em string ao criar JSON
+def serialize_dates(data):
+    for entry in data:
+        for key, value in entry.items():
+            if isinstance(value, datetime):
+                entry[key] = value.isoformat()
+    return data
 
 # Interface do Streamlit
 st.title("GitHub Commit and PR Extractor")
 
-# Entradas do usuário
-repo_name = st.text_input("Nome do Repositório (ex: usuario/repo):")
-token = st.text_input("Token do GitHub:", type="password")
+# Dropdown para selecionar o repositório
+repo_names = get_repo_names()
+repo_name = st.selectbox("Selecione o Repositório:", repo_names)
 
 if st.button("Extrair Dados"):
-    if repo_name and token:
+    if repo_name:
         try:
             with st.spinner('Buscando commits e pull requests...'):
-                commits = get_all_commits(repo_name, token)
-                pull_requests = get_all_pull_requests(repo_name, token)
+                commits = get_all_commits(repo_name)
+                pull_requests = get_all_pull_requests(repo_name)
             
             if commits:
                 st.success(f"Encontrado {len(commits)} commits.")
@@ -68,7 +74,8 @@ if st.button("Extrair Dados"):
                 st.dataframe(df_commits)
                 
                 # Download do JSON de commits
-                json_data_commits = json.dumps(commits, indent=4)
+                commits_serialized = serialize_dates(commits)
+                json_data_commits = json.dumps(commits_serialized, indent=4)
                 st.download_button(
                     label="Baixar JSON de Commits",
                     data=json_data_commits,
@@ -106,7 +113,8 @@ if st.button("Extrair Dados"):
                 st.dataframe(df_pulls)
                 
                 # Download do JSON de pull requests
-                json_data_pulls = json.dumps(pull_requests, indent=4)
+                pull_requests_serialized = serialize_dates(pull_requests)
+                json_data_pulls = json.dumps(pull_requests_serialized, indent=4)
                 st.download_button(
                     label="Baixar JSON de Pull Requests",
                     data=json_data_pulls,
