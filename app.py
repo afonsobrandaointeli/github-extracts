@@ -87,6 +87,10 @@ if st.button("Extrair Dados"):
                 df_commits['type'] = df_commits['message'].apply(lambda x: 'docs' if 'docs' in x else ('feat' if 'feat' in x else ('fix' if 'fix' in x else ('merge' if 'Merge' in x else ('tests' if 'tests' in x else 'other')))))
                 type_counts = df_commits.groupby(['author', 'type']).size().unstack(fill_value=0)
 
+                # Adiciona a coluna 'tests' caso não exista
+                if 'tests' not in type_counts.columns:
+                    type_counts['tests'] = 0
+
                 # Gráficos de commits por tipo
                 fig_docs = px.bar(type_counts, x=type_counts.index, y='docs', title="Número de Docs por Autor", labels={'x':'Autor', 'y':'Número de Docs'})
                 st.plotly_chart(fig_docs)
