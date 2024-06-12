@@ -54,7 +54,7 @@ def serialize_dates(data):
     return data
 
 # Interface do Streamlit
-st.title("GitHub Commit and PR Extractor")
+st.title("Extrator de Commits e PRs do GitHub")
 
 # Dropdown para selecionar o repositório
 repo_names = get_repo_names()
@@ -66,13 +66,13 @@ if st.button("Extrair Dados"):
             with st.spinner('Buscando commits e pull requests...'):
                 commits = get_all_commits(repo_name)
                 pull_requests = get_all_pull_requests(repo_name)
-            
+
             if commits:
                 st.success(f"Encontrado {len(commits)} commits.")
                 df_commits = pd.DataFrame(commits)
                 df_commits['date'] = pd.to_datetime(df_commits['date'])
                 st.dataframe(df_commits)
-                
+
                 # Download do JSON de commits
                 commits_serialized = serialize_dates(commits)
                 json_data_commits = json.dumps(commits_serialized, indent=4)
@@ -84,34 +84,37 @@ if st.button("Extrair Dados"):
                 )
 
                 # Análise de tipos de commits
-                df_commits['type'] = df_commits['message'].apply(lambda x: 'docs' if 'docs' in x else ('feat' if 'feat' in x else ('fix' if 'fix' in x else 'other')))
+                df_commits['type'] = df_commits['message'].apply(lambda x: 'docs' if 'docs' in x else ('feat' if 'feat' in x else ('fix' if 'fix' in x else ('merge' if 'Merge' in x else ('tests' if 'tests' in x else 'other')))))
                 type_counts = df_commits.groupby(['author', 'type']).size().unstack(fill_value=0)
-                
-                # Gráfico de docs por autor
+
+                # Gráficos de commits por tipo
                 fig_docs = px.bar(type_counts, x=type_counts.index, y='docs', title="Número de Docs por Autor", labels={'x':'Autor', 'y':'Número de Docs'})
                 st.plotly_chart(fig_docs)
-                
-                # Gráfico de feats por autor
+
                 fig_feats = px.bar(type_counts, x=type_counts.index, y='feat', title="Número de Feats por Autor", labels={'x':'Autor', 'y':'Número de Feats'})
                 st.plotly_chart(fig_feats)
-                
-                # Gráfico de fix por autor
+
                 fig_fix = px.bar(type_counts, x=type_counts.index, y='fix', title="Número de Fixes por Autor", labels={'x':'Autor', 'y':'Número de Fixes'})
                 st.plotly_chart(fig_fix)
-                
-                # Gráfico de outros tipos por autor
-                fig_others = px.bar(type_counts, x=type_counts.index, y=['docs', 'feat', 'fix', 'other'], title="Número de Outros Tipos de Commits por Autor")
+
+                fig_merge = px.bar(type_counts, x=type_counts.index, y='merge', title="Número de Merges por Autor", labels={'x':'Autor', 'y':'Número de Merges'})
+                st.plotly_chart(fig_merge)
+
+                fig_tests = px.bar(type_counts, x=type_counts.index, y='tests', title="Número de Tests por Autor", labels={'x':'Autor', 'y':'Número de Tests'})
+                st.plotly_chart(fig_tests)
+
+                fig_others = px.bar(type_counts, x=type_counts.index, y=['docs', 'feat', 'fix', 'merge', 'tests', 'other'], title="Número de Outros Tipos de Commits por Autor")
                 st.plotly_chart(fig_others)
-            
+
             else:
                 st.warning("Nenhum commit encontrado.")
-                
+
             if pull_requests:
                 st.success(f"Encontrado {len(pull_requests)} pull requests.")
                 df_pulls = pd.DataFrame(pull_requests)
                 df_pulls['created_at'] = pd.to_datetime(df_pulls['created_at'])
                 st.dataframe(df_pulls)
-                
+
                 # Download do JSON de pull requests
                 pull_requests_serialized = serialize_dates(pull_requests)
                 json_data_pulls = json.dumps(pull_requests_serialized, indent=4)
@@ -136,10 +139,10 @@ if st.button("Extrair Dados"):
                 df_pulls['num_commits'] = df_pulls['commits'].apply(len)
                 fig_pr_commits = px.histogram(df_pulls, x='num_commits', nbins=10, title="Distribuição do Número de Commits por Pull Request")
                 st.plotly_chart(fig_pr_commits)
-                
+
             else:
                 st.warning("Nenhum pull request encontrado.")
-                
+
         except Exception as e:
             st.error(f"Erro ao buscar commits e pull requests: {e}")
     else:
